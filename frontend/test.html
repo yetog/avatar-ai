@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live2D Test</title>
+    <style>
+        body { margin: 0; background: #1a1a2e; }
+        #canvas { width: 100vw; height: 100vh; }
+        #status { position: fixed; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 100; }
+    </style>
+</head>
+<body>
+    <div id="status">Loading...</div>
+    <canvas id="canvas"></canvas>
+
+    <!-- Cubism SDKs (required for Live2D) -->
+    <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <!-- PixiJS + Live2D Display -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
+    <script>
+        const status = document.getElementById('status');
+
+        async function init() {
+            status.textContent = 'Checking PIXI...';
+
+            if (typeof PIXI === 'undefined') {
+                status.textContent = 'ERROR: PIXI not loaded';
+                return;
+            }
+
+            if (!PIXI.live2d) {
+                status.textContent = 'ERROR: PIXI.live2d not loaded';
+                return;
+            }
+
+            status.textContent = 'Creating app...';
+
+            const app = new PIXI.Application({
+                view: document.getElementById('canvas'),
+                resizeTo: window,
+                backgroundAlpha: 0,
+                antialias: true
+            });
+
+            status.textContent = 'Loading model...';
+
+            try {
+                const model = await PIXI.live2d.Live2DModel.from(
+                    'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json'
+                );
+
+                model.scale.set(0.3);
+                model.x = window.innerWidth / 2;
+                model.y = window.innerHeight / 2 + 150;
+                model.anchor.set(0.5, 0.5);
+
+                app.stage.addChild(model);
+
+                status.textContent = 'SUCCESS: Model loaded! You should see Shizuku.';
+
+                // Mouse tracking
+                document.addEventListener('mousemove', e => model.focus(e.clientX, e.clientY));
+
+            } catch (err) {
+                status.textContent = 'ERROR: ' + err.message;
+                console.error(err);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

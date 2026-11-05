@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Avatar AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        /* Canvas - matches working debug.html positioning */
+        #canvas {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 70vh;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+        }
+        .header h1 {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Character Selector */
+        .character-select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .character-select:focus {
+            outline: none;
+            border-color: #007AFF;
+        }
+        .character-select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .status-dot.connected { background: #4ade80; }
+        .status-dot.speaking { background: #3b82f6; animation: pulse 0.5s infinite; }
+        .status-dot.loading { background: #f59e0b; animation: pulse 0.5s infinite; }
+        .status-dot.error { background: #ef4444; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .status-text { font-size: 12px; color: #aaa; }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+        }
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) { transform: scale(1.05); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Debug log */
+        #log {
+            position: fixed;
+            top: 60px; left: 10px;
+            width: 300px;
+            max-height: 180px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 100;
+            color: #0f0;
+        }
+        #log div { margin: 3px 0; }
+        .error { color: #f44; }
+        .success { color: #4f4; }
+        .info { color: #4af; }
+    </style>
+</head>
+<body>
+    <div id="log"></div>
+    <canvas id="canvas"></canvas>
+
+    <div class="header">
+        <h1>
+            <span class="status-dot" id="statusDot"></span>
+            Avatar AI
+            <span class="status-text" id="statusText">Loading...</span>
+        </h1>
+        <select class="character-select" id="characterSelect">
+            <option value="ionos">IONOS Customer Service</option>
+            <option value="dante">Dante - Life Copilot</option>
+            <option value="sasha">Sasha - Reflection Partner</option>
+            <option value="cora">Cora - Engineer</option>
+            <option value="natasha">Natasha - Strategist</option>
+            <option value="drzay">Dr. Zay - Music A&R</option>
+            <option value="zay">Zay 2.0 - Assistant</option>
+            <option value="ashley">Ashley - General</option>
+        </select>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" id="startBtn" disabled>Start</button>
+        <button class="btn btn-secondary" id="endBtn" disabled>End</button>
+    </div>
+
+    <script>
+        // === State ===
+        let app, currentModel, smoothedVolume = 0;
+        let conversation = null, isConnected = false;
+        const logEl = document.getElementById('log');
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toISOString().substr(11,8)}] ${msg}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(msg);
+        }
+
+        function loadScript(url, name) {
+            return new Promise((resolve, reject) => {
+                log(`Loading ${name}...`, 'info');
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => {
+                    log(`+ ${name} loaded`, 'success');
+                    resolve();
+                };
+                script.onerror = (e) => {
+                    log(`X ${name} FAILED`, 'error');
+                    reject(e);
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        function updateStatus(state, text) {
+            document.getElementById('statusDot').className = 'status-dot ' + state;
+            document.getElementById('statusText').textContent = text;
+        }
+
+        // Find mouth parameter index for Cubism 2 models
+        function findMouthParam(model) {
+            const coreModel = model?.internalModel?.coreModel;
+            if (!coreModel) return -1;
+
+            // Cubism 2 uses getParamIndex
+            if (typeof coreModel.getParamIndex === 'function') {
+                const idx = coreModel.getParamIndex('PARAM_MOUTH_OPEN_Y');
+                if (idx >= 0) return idx;
+                // Try alternate name
+                return coreModel.getParamIndex('ParamMouthOpenY');
+            }
+            return -1;
+        }
+
+        // Set mouth open value - handles both Cubism 2 and 4
+        function setMouthOpen(model, value, paramIndex) {
+            const coreModel = model?.internalModel?.coreModel;
+            if (!coreModel) return;
+
+            // Cubism 2: use setParamFloat with index
+            if (typeof coreModel.setParamFloat === 'function' && paramIndex >= 0) {
+                coreModel.setParamFloat(paramIndex, value);
+                return;
+            }
+
+            // Cubism 4: use setParameterValueById
+            if (typeof coreModel.setParameterValueById === 'function') {
+                coreModel.setParameterValueById('ParamMouthOpenY', value);
+            }
+        }
+
+        // === Main Init ===
+        async function init() {
+            log('Starting Avatar AI...', 'info');
+            log(`WebGL: ${!!document.createElement('canvas').getContext('webgl')}`, 'info');
+
+            try {
+                // Load Live2D libraries in sequence (same as working debug.html)
+                await loadScript('https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js', 'Cubism2 SDK');
+                await loadScript('https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js', 'Cubism4 SDK');
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js', 'PixiJS');
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js', 'Live2D Display');
+
+                log(`PIXI.live2d: ${typeof PIXI.live2d}`, 'info');
+
+                if (!PIXI.live2d?.Live2DModel) {
+                    log('PIXI.live2d.Live2DModel not available!', 'error');
+                    updateStatus('error', 'SDK Error');
+                    return;
+                }
+
+                // Create PIXI app (same as debug.html)
+                log('Creating PIXI Application...', 'info');
+                app = new PIXI.Application({
+                    view: document.getElementById('canvas'),
+                    resizeTo: window,
+                    backgroundAlpha: 0,
+                    antialias: true
+                });
+                log(`Renderer: ${app.renderer.type === 1 ? 'WebGL' : 'Canvas'}`, 'success');
+
+                // Load avatar model
+                log('Loading Shizuku model...', 'info');
+                const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json';
+
+                const model = await PIXI.live2d.Live2DModel.from(modelUrl);
+                currentModel = model;
+
+                log(`Model loaded: ${model.width}x${model.height}`, 'success');
+
+                // Position model (same as debug.html)
+                model.scale.set(0.25);
+                model.x = window.innerWidth / 2;
+                model.y = window.innerHeight * 0.75;
+                model.anchor.set(0.5, 0.5);
+
+                app.stage.addChild(model);
+                log(`Model at (${Math.round(model.x)}, ${Math.round(model.y)})`, 'success');
+                log('Avatar visible!', 'success');
+
+                // Mouse tracking
+                document.addEventListener('mousemove', e => model.focus(e.clientX, e.clientY));
+
+                // Resize handler
+                window.addEventListener('resize', () => {
+                    model.x = window.innerWidth / 2;
+                    model.y = window.innerHeight * 0.75;
+                });
+
+                // Now load voice SDK
+                await loadScript('elevenlabs.js', 'Voice SDK');
+                log('Voice SDK ready!', 'success');
+
+                // Enable start button
+                document.getElementById('startBtn').disabled = false;
+                updateStatus('', 'Ready - tap Start');
+
+                // Setup button handlers
+                document.getElementById('startBtn').onclick = startConversation;
+                document.getElementById('endBtn').onclick = endConversation;
+
+                // Lip sync animation loop - Cubism 2 uses setParamFloat
+                const mouthParamIndex = findMouthParam(model);
+                log(`Mouth param index: ${mouthParamIndex}`, 'info');
+
+                app.ticker.add(() => {
+                    if (smoothedVolume > 0.01) {
+                        smoothedVolume *= 0.85; // Slower decay for smoother animation
+                        setMouthOpen(currentModel, smoothedVolume, mouthParamIndex);
+                    }
+                });
+
+            } catch (err) {
+                log(`ERROR: ${err.message}`, 'error');
+                log(`Stack: ${err.stack}`, 'error');
+                updateStatus('error', 'Load failed');
+            }
+        }
+
+        // === Voice Conversation ===
+        async function startConversation() {
+            try {
+                updateStatus('loading', 'Connecting...');
+                log('Requesting microphone...', 'info');
+
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                const selectedCharacter = document.getElementById('characterSelect').value;
+                log(`Getting signed URL for ${selectedCharacter}...`, 'info');
+                const res = await fetch(`/voice-assistant/api/signed-url?character=${selectedCharacter}`);
+                const { signedUrl, character } = await res.json();
+                log(`Connected to: ${character || selectedCharacter}`, 'success');
+
+                log('Starting ElevenLabs session...', 'info');
+                conversation = await window.ElevenLabsConversation.startSession({
+                    signedUrl,
+                    onConnect: () => {
+                        log('Connected!', 'success');
+                        isConnected = true;
+                        updateStatus('connected', 'Speak now!');
+                        document.getElementById('startBtn').disabled = true;
+                        document.getElementById('endBtn').disabled = false;
+                    },
+                    onDisconnect: () => {
+                        log('Disconnected', 'info');
+                        isConnected = false;
+                        smoothedVolume = 0;
+                        updateStatus('', 'Disconnected');
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('endBtn').disabled = true;
+                    },
+                    onModeChange: (mode) => {
+                        log('Mode: ' + mode.mode, 'info');
+                        if (mode.mode === 'speaking') {
+                            updateStatus('speaking', 'AI Speaking...');
+                            animateLipSync();
+                        } else {
+                            updateStatus('connected', 'Listening...');
+                            smoothedVolume = 0;
+                        }
+                    },
+                    onMessage: (msg) => {
+                        const text = msg.message || msg.text || '';
+                        if (text) log('AI: ' + text.substring(0, 40) + '...', 'info');
+                    },
+                    onError: (err) => {
+                        log('Error: ' + err, 'error');
+                        updateStatus('error', 'Error');
+                    }
+                });
+            } catch (err) {
+                log('Start failed: ' + err.message, 'error');
+                updateStatus('error', err.message);
+            }
+        }
+
+        async function endConversation() {
+            if (conversation) {
+                await conversation.endSession();
+                conversation = null;
+            }
+            isConnected = false;
+            smoothedVolume = 0;
+            updateStatus('', 'Ready - tap Start');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('endBtn').disabled = true;
+            log('Session ended', 'info');
+        }
+
+        function animateLipSync() {
+            if (!isConnected) return;
+            const isSpeaking = document.getElementById('statusText').textContent.includes('Speaking');
+            if (!isSpeaking) {
+                smoothedVolume = 0;
+                return;
+            }
+            // More varied mouth movement - alternates between open and partially closed
+            smoothedVolume = 0.4 + Math.random() * 0.6; // Range 0.4 to 1.0
+            setTimeout(() => {
+                if (isConnected && document.getElementById('statusText').textContent.includes('Speaking')) {
+                    animateLipSync();
+                }
+            }, 60 + Math.random() * 80); // 60-140ms intervals for natural feel
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

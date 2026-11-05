@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Avatar AI Debug</title>
+    <style>
+        body { margin: 0; background: #1a1a2e; color: #0f0; font-family: monospace; font-size: 14px; }
+        #log { position: fixed; top: 10px; left: 10px; right: 10px; max-height: 50vh; overflow-y: auto; z-index: 100; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; }
+        #log div { margin: 4px 0; }
+        .error { color: #f44; }
+        .success { color: #4f4; }
+        .info { color: #4af; }
+        #canvas { position: fixed; bottom: 0; left: 0; width: 100vw; height: 50vh; }
+    </style>
+</head>
+<body>
+    <div id="log"></div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const logEl = document.getElementById('log');
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toISOString().substr(11,8)}] ${msg}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(msg);
+        }
+
+        function loadScript(url, name) {
+            return new Promise((resolve, reject) => {
+                log(`Loading ${name}...`, 'info');
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => {
+                    log(`✓ ${name} loaded`, 'success');
+                    resolve();
+                };
+                script.onerror = (e) => {
+                    log(`✗ ${name} FAILED: ${e.message || 'unknown error'}`, 'error');
+                    reject(e);
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        async function init() {
+            log('Starting debug sequence...', 'info');
+            log(`User Agent: ${navigator.userAgent}`, 'info');
+            log(`WebGL: ${!!document.createElement('canvas').getContext('webgl')}`, 'info');
+
+            try {
+                // Load scripts in sequence
+                await loadScript('https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js', 'Cubism2 SDK');
+                log(`  → window.Live2D: ${typeof window.Live2D}`, 'info');
+
+                await loadScript('https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js', 'Cubism4 SDK');
+                log(`  → window.Live2DCubismCore: ${typeof window.Live2DCubismCore}`, 'info');
+
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js', 'PixiJS');
+                log(`  → window.PIXI: ${typeof window.PIXI}`, 'info');
+
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js', 'pixi-live2d-display');
+                log(`  → PIXI.live2d: ${typeof PIXI.live2d}`, 'info');
+                log(`  → PIXI.live2d.Live2DModel: ${typeof PIXI.live2d?.Live2DModel}`, 'info');
+
+                if (!PIXI.live2d?.Live2DModel) {
+                    log('PIXI.live2d.Live2DModel not available!', 'error');
+                    return;
+                }
+
+                log('Creating PIXI Application...', 'info');
+                const app = new PIXI.Application({
+                    view: document.getElementById('canvas'),
+                    resizeTo: window,
+                    backgroundAlpha: 0,
+                    antialias: true
+                });
+                log(`✓ PIXI App created, renderer: ${app.renderer.type === 1 ? 'WebGL' : 'Canvas'}`, 'success');
+
+                log('Loading Shizuku model...', 'info');
+                const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json';
+
+                const model = await PIXI.live2d.Live2DModel.from(modelUrl);
+                log(`✓ Model loaded: ${model.width}x${model.height}`, 'success');
+
+                model.scale.set(0.25);
+                model.x = window.innerWidth / 2;
+                model.y = window.innerHeight * 0.75;
+                model.anchor.set(0.5, 0.5);
+
+                app.stage.addChild(model);
+                log(`✓ Model added to stage at (${model.x}, ${model.y})`, 'success');
+                log('🎉 SUCCESS - You should see Shizuku in the bottom half!', 'success');
+
+                document.addEventListener('mousemove', e => model.focus(e.clientX, e.clientY));
+
+            } catch (err) {
+                log(`ERROR: ${err.message}`, 'error');
+                log(`Stack: ${err.stack}`, 'error');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

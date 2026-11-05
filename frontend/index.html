@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Avatar AI - Conversations with Character</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://s3.us-central-1.ionoscloud.com/portfoliowebsite/apps/avatar-ai-192.png">
+    <meta name="apple-mobile-web-app-title" content="Avatar AI">
+
+    <style>
+        :root {
+            --primary: #007AFF;
+            --primary-glow: rgba(0, 122, 255, 0.3);
+            --bg-dark: #1a1a2e;
+            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            --glass: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.6);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-top: env(safe-area-inset-top, 0px);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-gradient);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            color: var(--text);
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ===== LAYOUT MODES ===== */
+        .app-container {
+            display: grid;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        /* Desktop: Side by side */
+        @media (min-width: 768px) {
+            .app-container {
+                grid-template-columns: 1fr 400px;
+                grid-template-rows: auto 1fr auto;
+            }
+            .header { grid-column: 1 / -1; }
+            .avatar-section { grid-column: 1; grid-row: 2; }
+            .chat-section { grid-column: 2; grid-row: 2 / 4; }
+            .controls-section { grid-column: 1; grid-row: 3; }
+        }
+
+        /* Mobile: Stacked */
+        @media (max-width: 767px) {
+            .app-container {
+                grid-template-rows: auto 40vh 1fr auto;
+            }
+            .header { grid-row: 1; }
+            .avatar-section { grid-row: 2; }
+            .chat-section { grid-row: 3; }
+            .controls-section { grid-row: 4; }
+        }
+
+        /* ===== CANVAS / AVATAR ===== */
+        .avatar-section {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Animated background */
+        .avatar-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        /* Gradient orbs */
+        .avatar-bg::before,
+        .avatar-bg::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 8s ease-in-out infinite;
+        }
+        .avatar-bg::before {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(0, 122, 255, 0.4) 0%, transparent 70%);
+            top: 10%; left: 10%;
+            animation-delay: 0s;
+        }
+        .avatar-bg::after {
+            width: 250px; height: 250px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+            bottom: 20%; right: 10%;
+            animation-delay: -4s;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(20px, -20px) scale(1.05); }
+            50% { transform: translate(-10px, 20px) scale(0.95); }
+            75% { transform: translate(-20px, -10px) scale(1.02); }
+        }
+
+        /* Grid overlay */
+        .avatar-grid {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(ellipse 80% 80% at center, black 20%, transparent 70%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 80% at center, black 20%, transparent 70%);
+        }
+
+        /* Floating particles */
+        .particle {
+            position: absolute;
+            width: 4px; height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            animation: rise 10s linear infinite;
+        }
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 12s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: -2s; animation-duration: 10s; }
+        .particle:nth-child(3) { left: 35%; animation-delay: -4s; animation-duration: 14s; }
+        .particle:nth-child(4) { left: 50%; animation-delay: -1s; animation-duration: 11s; }
+        .particle:nth-child(5) { left: 65%; animation-delay: -3s; animation-duration: 13s; }
+        .particle:nth-child(6) { left: 80%; animation-delay: -5s; animation-duration: 9s; }
+        .particle:nth-child(7) { left: 90%; animation-delay: -2.5s; animation-duration: 15s; }
+        @keyframes rise {
+            0% { bottom: -10px; opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { bottom: 100%; opacity: 0; }
+        }
+
+        /* Glow ring behind avatar */
+        .avatar-glow {
+            position: absolute;
+            width: 280px; height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 122, 255, 0.15) 0%, transparent 70%);
+            z-index: 0;
+            animation: breathe 4s ease-in-out infinite;
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        #canvas {
+            position: relative;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* ===== LOADING OVERLAY ===== */
+        #loadingOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+        #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+
+        .spinner {
+            width: 48px; height: 48px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #loadingText {
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            padding-top: calc(12px + var(--safe-top));
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 100;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #666;
+            flex-shrink: 0;
+        }
+        .status-dot.connected { background: #4ade80; }
+        .status-dot.speaking { background: #3b82f6; animation: pulse 0.5s infinite; }
+        .status-dot.listening { background: #4ade80; animation: pulse 1s infinite; }
+        .status-dot.connecting, .status-dot.loading { background: #f59e0b; animation: pulse 0.5s infinite; }
+        .status-dot.error { background: #ef4444; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        #statusText {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ===== SELECTORS ===== */
+        .selectors {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .selector-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .selector-group label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .selector-group select {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        .selector-group select option { background: var(--bg-dark); }
+
+        .studio-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), #5856D6);
+            color: white;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .studio-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        @media (max-width: 767px) {
+            .header { padding: 8px 12px; padding-top: calc(8px + var(--safe-top)); }
+            .header h1 { font-size: 14px; }
+            .selectors { width: 100%; justify-content: space-between; }
+            .selector-group select { min-width: 100px; font-size: 12px; padding: 6px 10px; }
+            .studio-link { padding: 6px 10px; font-size: 11px; }
+            .studio-link svg { width: 14px; height: 14px; }
+        }
+
+        /* ===== CHAT SECTION ===== */
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid var(--glass-border);
+            z-index: 50;
+        }
+
+        @media (max-width: 767px) {
+            .chat-section {
+                border-left: none;
+                border-top: 1px solid var(--glass-border);
+            }
+        }
+
+        /* Chat Header */
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .chat-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: var(--glass);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.15); color: var(--text); }
+        .icon-btn svg { width: 16px; height: 16px; }
+
+        /* Chat Messages */
+        #chatDisplay {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
+        .chat-message.user {
+            background: var(--primary);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.assistant {
+            background: rgba(255,255,255,0.12);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message .timestamp {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Chat Input */
+        .chat-input-row {
+            display: flex;
+            padding: 12px 16px;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            gap: 8px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        #chatInput {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #chatInput:focus { border-color: var(--primary); }
+        #chatInput::placeholder { color: var(--text-muted); }
+        #chatInput:disabled { opacity: 0.5; }
+
+        #sendBtn {
+            padding: 12px 20px;
+            border-radius: 24px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        #sendBtn:hover:not(:disabled) { transform: scale(1.05); }
+        #sendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ===== CONTROLS ===== */
+        .controls-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            padding-bottom: calc(16px + var(--safe-bottom));
+            gap: 12px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            z-index: 100;
+        }
+
+        @media (min-width: 768px) {
+            .controls-section {
+                padding-bottom: 16px;
+                background: transparent;
+                backdrop-filter: none;
+                border-top: none;
+            }
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 28px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #5856D6);
+            color: white;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+        .btn-primary:hover:not(:disabled) { transform: scale(1.05); }
+
+        .btn-secondary {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+        }
+        .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        /* Keyboard hints */
+        .keyboard-hints {
+            position: fixed;
+            bottom: 8px;
+            left: 16px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.3);
+            z-index: 10;
+        }
+        @media (max-width: 767px) { .keyboard-hints { display: none; } }
+
+        /* ===== EXPORT MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+
+        .modal {
+            background: var(--bg-dark);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--glass-border);
+        }
+
+        .modal h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        .modal-preview {
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 16px;
+            color: var(--text-muted);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* ===== FLOATING SUBTITLE ===== */
+        #floatingSubtitle {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 80%;
+            padding: 14px 20px;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 14px;
+            text-align: center;
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #floatingSubtitle.visible { opacity: 1; }
+
+        @media (min-width: 768px) {
+            #floatingSubtitle { display: none; }
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 32px;
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state p { font-size: 14px; }
+
+        /* Gesture reaction animation */
+        @keyframes gesturePopup {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            30% { transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%, -70%) scale(0.8); }
+        }
+
+        /* Client tool animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* Tool notification styles */
+        .tool-notification {
+            font-family: var(--font-main);
+        }
+
+        /* Hand tracking toggle button */
+        .hand-toggle {
+            position: fixed;
+            bottom: 140px;
+            right: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 102;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
+        }
+        .hand-toggle:hover { background: rgba(255,255,255,0.15); }
+        .hand-toggle.active { background: var(--primary); border-color: var(--primary); }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">Initializing...</div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <h3>Export Conversation</h3>
+            <div class="modal-preview" id="exportPreview"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeExportModal()">Cancel</button>
+                <button class="btn btn-secondary" onclick="copyToClipboard()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    Copy
+                </button>
+                <button class="btn btn-primary" onclick="downloadMarkdown()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download .md
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>
+                    <span class="status-dot" id="statusDot"></span>
+                    Avatar AI
+                </h1>
+                <span id="statusText">Ready</span>
+            </div>
+            <div class="selectors">
+                <div class="selector-group">
+                    <label>Type</label>
+                    <select id="avatarTypeSelect">
+                        <option value="live2d">Live2D</option>
+                        <option value="orb">Orb</option>
+                        <option value="image">Image</option>
+                    </select>
+                </div>
+                <div class="selector-group" id="avatarSelectGroup">
+                    <label>Avatar</label>
+                    <select id="modelSelect">
+                        <option value="tororo">Tororo</option>
+                        <option value="hijiki">Hijiki</option>
+                    </select>
+                </div>
+                <div class="selector-group">
+                    <label>Voice</label>
+                    <select id="characterSelect">
+                        <option value="ionos">IONOS Support</option>
+                        <option value="zay">Zay 2.0</option>
+                        <option value="dante">Dante</option>
+                        <option value="sasha">Sasha</option>
+                        <option value="cora">Cora</option>
+                        <option value="natasha">Natasha</option>
+                        <option value="drzay">Dr. Zay</option>
+                        <option value="ashley">Ashley</option>
+                    </select>
+                </div>
+                <a href="studio.html" class="studio-link" title="Create Custom Avatars">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    Studio
+                </a>
+            </div>
+        </header>
+
+        <!-- Avatar Section -->
+        <section class="avatar-section">
+            <!-- Animated background -->
+            <div class="avatar-bg"></div>
+            <div class="avatar-grid"></div>
+
+            <!-- Floating particles -->
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+
+            <!-- Glow behind avatar -->
+            <div class="avatar-glow"></div>
+
+            <!-- Live2D Canvas -->
+            <canvas id="canvas"></canvas>
+        </section>
+
+        <!-- Chat Section -->
+        <section class="chat-section">
+            <div class="chat-header">
+                <h2 id="chatTitle">Chat</h2>
+                <div class="chat-actions">
+                    <button class="icon-btn" onclick="clearChat()" title="Clear chat">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                    <button class="icon-btn" onclick="openExportModal()" title="Export chat">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="chatDisplay">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                    <p>Press Start to begin your conversation</p>
+                </div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Start conversation first" disabled>
+                <button id="sendBtn" disabled>Send</button>
+            </div>
+        </section>
+
+        <!-- Controls Section (Desktop only - mobile uses bottom bar) -->
+        <section class="controls-section">
+            <button class="btn btn-primary" id="startBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start
+            </button>
+            <button class="btn btn-danger" id="endBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                End
+            </button>
+        </section>
+    </div>
+
+    <!-- Floating Subtitle (mobile) -->
+    <div id="floatingSubtitle"></div>
+
+    <!-- Hand Tracking Toggle -->
+    <button id="handToggle" class="hand-toggle" title="Toggle Hand Tracking">
+        🖐️
+    </button>
+
+    <!-- Keyboard Hints (desktop) -->
+    <div class="keyboard-hints">
+        Space: Start/Stop &nbsp;|&nbsp; C: Toggle Chat &nbsp;|&nbsp; H: Hand Tracking &nbsp;|&nbsp; Esc: End
+    </div>
+
+    <!-- Chat Export Functions -->
+    <script>
+        // Chat history storage
+        window.chatHistory = [];
+        window.currentCharacter = 'Zay 2.0';
+
+        function addMessageToHistory(role, content) {
+            window.chatHistory.push({
+                role,
+                content,
+                character: role === 'assistant' ? window.currentCharacter : 'You',
+                timestamp: new Date()
+            });
+            saveToLocalStorage();
+        }
+
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('avatarAI_chatHistory', JSON.stringify(window.chatHistory));
+            } catch (e) {}
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('avatarAI_chatHistory');
+                if (saved) window.chatHistory = JSON.parse(saved);
+            } catch (e) {}
+        }
+
+        function generateMarkdown() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            let md = `# Conversation with ${window.currentCharacter}\n`;
+            md += `**Date:** ${dateStr} at ${timeStr}\n\n`;
+            md += `---\n\n`;
+
+            for (const msg of window.chatHistory) {
+                const time = new Date(msg.timestamp).toLocaleTimeString('en-US', {
+                    hour: 'numeric', minute: '2-digit'
+                });
+                md += `**${msg.character}** _(${time})_:\n`;
+                md += `${msg.content}\n\n`;
+            }
+
+            md += `---\n\n`;
+            md += `_Exported from Avatar AI_\n`;
+            return md;
+        }
+
+        function openExportModal() {
+            if (window.chatHistory.length === 0) {
+                alert('No messages to export');
+                return;
+            }
+            const preview = generateMarkdown();
+            document.getElementById('exportPreview').textContent = preview;
+            document.getElementById('exportModal').classList.add('visible');
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('visible');
+        }
+
+        function copyToClipboard() {
+            const md = generateMarkdown();
+            navigator.clipboard.writeText(md).then(() => {
+                alert('Copied to clipboard!');
+                closeExportModal();
+            });
+        }
+
+        function downloadMarkdown() {
+            const md = generateMarkdown();
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `conversation-${window.currentCharacter.toLowerCase().replace(/\s+/g, '-')}-${date}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            closeExportModal();
+        }
+
+        function clearChat() {
+            if (confirm('Clear all messages?')) {
+                window.chatHistory = [];
+                saveToLocalStorage();
+                const display = document.getElementById('chatDisplay');
+                display.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        <p>Chat cleared. Press Start to begin.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Update character name when selector changes
+        document.getElementById('characterSelect')?.addEventListener('change', (e) => {
+            const names = {
+                ionos: 'IONOS Support',
+                zay: 'Zay 2.0',
+                dante: 'Dante',
+                sasha: 'Sasha',
+                cora: 'Cora',
+                natasha: 'Natasha',
+                drzay: 'Dr. Zay',
+                ashley: 'Ashley'
+            };
+            window.currentCharacter = names[e.target.value] || 'AI';
+            document.getElementById('chatTitle').textContent = `Chat with ${window.currentCharacter}`;
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('exportModal').addEventListener('click', (e) => {
+            if (e.target.id === 'exportModal') closeExportModal();
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeExportModal();
+        });
+
+        // Load saved history
+        loadFromLocalStorage();
+    </script>
+
+    <!-- MediaPipe Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js"></script>
+
+    <!-- Live2D Libraries -->
+    <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
+
+    <!-- App Bundle (needs update to call addMessageToHistory) -->
+    <script src="bundle.js"></script>
+</body>
+</html>

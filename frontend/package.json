@@ -1,0 +1,18 @@
+{
+  "name": "avatar-ai",
+  "version": "1.0.0",
+  "description": "Live2D Avatar with ElevenLabs Conversational AI",
+  "type": "module",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack serve --mode development"
+  },
+  "dependencies": {
+    "@elevenlabs/client": "^1.17.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.102.0",
+    "webpack-cli": "^6.0.1",
+    "copy-webpack-plugin": "^13.0.1"
+  }
+}

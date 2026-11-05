@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Avatar AI - Companions</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        #canvas {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 70vh;
+        }
+
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .status-dot.connected { background: #4ade80; }
+        .status-dot.speaking { background: #3b82f6; animation: pulse 0.5s infinite; }
+        .status-dot.listening { background: #4ade80; animation: pulse 1s infinite; }
+        .status-dot.connecting { background: #f59e0b; animation: pulse 0.5s infinite; }
+        .status-dot.error { background: #ef4444; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        #statusText { font-size: 12px; color: #aaa; }
+
+        /* Character Selector */
+        .character-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #characterSelect {
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        #characterSelect option {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 8px;
+        }
+        .character-info {
+            font-size: 11px;
+            color: #888;
+            max-width: 200px;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+        }
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) { transform: scale(1.05); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Volume meter */
+        .volume-meter {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            z-index: 10;
+        }
+        .volume-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #3b82f6);
+            width: 0%;
+            transition: width 0.05s;
+        }
+
+        #log {
+            position: fixed;
+            top: 70px; left: 10px;
+            width: 300px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 10px;
+            z-index: 100;
+            color: #0f0;
+            display: none;
+        }
+        #log.visible { display: block; }
+        #log div { margin: 2px 0; }
+        .error { color: #f44; }
+        .success { color: #4f4; }
+        .info { color: #4af; }
+
+        .toggle-log {
+            position: fixed;
+            top: 70px; left: 10px;
+            padding: 6px 12px;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            border-radius: 6px;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            z-index: 99;
+        }
+
+        /* Character name display */
+        .character-name {
+            position: fixed;
+            bottom: 130px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-log" id="toggleLog">Show Log</button>
+    <div id="log"></div>
+    <canvas id="canvas"></canvas>
+
+    <div class="header">
+        <div class="header-left">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Loading...</span>
+        </div>
+        <div class="character-selector">
+            <select id="characterSelect">
+                <optgroup label="Companions">
+                    <option value="dante">Dante - Your Cool Friend</option>
+                    <option value="sasha">Sasha - Sweet & Caring</option>
+                    <option value="cora">Cora - Programmer & Anime Fan</option>
+                    <option value="natasha">Natasha - Captivating & Witty</option>
+                </optgroup>
+                <optgroup label="Assistants">
+                    <option value="anr">A&R - Music Mentor</option>
+                    <option value="zay">Zay 2.0 - AI Assistant</option>
+                    <option value="ashley">Ashley - General Assistant</option>
+                </optgroup>
+            </select>
+        </div>
+    </div>
+
+    <div class="character-name" id="characterName">Dante</div>
+
+    <div class="volume-meter">
+        <div class="volume-bar" id="volumeBar"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" id="startBtn" disabled>Start</button>
+        <button class="btn btn-secondary" id="endBtn" disabled>End</button>
+    </div>
+
+    <script>
+        // === Characters Configuration ===
+        const CHARACTERS = {
+            dante: {
+                name: 'Dante',
+                agentId: 'agent_5001m0c2h870exfsqeegc6thwmxt',
+                description: 'Cool friend, helps get stuff done'
+            },
+            sasha: {
+                name: 'Sasha',
+                agentId: 'agent_0901m0c2hr86e7jbqjq1962qecnz',
+                description: 'Sweet, considerate, checks in on you'
+            },
+            cora: {
+                name: 'Cora',
+                agentId: 'agent_7101m0c2jny5fxxtsgzerhat94qg',
+                description: 'Programmer, martial arts, anime'
+            },
+            natasha: {
+                name: 'Natasha',
+                agentId: 'agent_4201m0c2kcdsfjprx7kc5d6sxj39',
+                description: 'Captivating, playful, mysterious'
+            },
+            anr: {
+                name: 'A&R',
+                agentId: 'agent_6101m0c2gyg1fbtrdkkmt8h3swtp',
+                description: 'Music mentor, encourages creativity'
+            },
+            zay: {
+                name: 'Zay 2.0',
+                agentId: 'agent_5001k5mwc9fhftabwyc2a69b0e7w',
+                description: 'AI assistant'
+            },
+            ashley: {
+                name: 'Ashley',
+                agentId: 'agent_8401k43w966zehca8xvqcw8q785k',
+                description: 'General assistant'
+            }
+        };
+
+        // === State ===
+        let currentCharacter = CHARACTERS.dante;
+        let app, currentModel, smoothedVolume = 0, mouthParamIndex = -1;
+        let ws = null;
+        let isConnected = false;
+        let isSpeaking = false;
+
+        // Audio
+        let audioContext = null;
+        let analyser = null;
+        let micStream = null;
+        let micProcessor = null;
+
+        const logEl = document.getElementById('log');
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            const time = new Date().toISOString().substr(11, 8);
+            div.textContent = `[${time}] ${msg}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(msg);
+        }
+
+        function updateStatus(state, text) {
+            document.getElementById('statusDot').className = 'status-dot ' + state;
+            document.getElementById('statusText').textContent = text;
+        }
+
+        function updateVolumeBar(volume) {
+            document.getElementById('volumeBar').style.width = (volume * 100) + '%';
+        }
+
+        function updateCharacterDisplay() {
+            document.getElementById('characterName').textContent = currentCharacter.name;
+            document.title = `Avatar AI - ${currentCharacter.name}`;
+        }
+
+        // === Script Loading ===
+        function loadScript(url, name) {
+            return new Promise((resolve, reject) => {
+                log(`Loading ${name}...`, 'info');
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => { log(`+ ${name}`, 'success'); resolve(); };
+                script.onerror = (e) => { log(`X ${name} FAILED`, 'error'); reject(e); };
+                document.body.appendChild(script);
+            });
+        }
+
+        // === Cubism 2/4 Lip Sync Helpers ===
+        function findMouthParam(model) {
+            const coreModel = model?.internalModel?.coreModel;
+            if (!coreModel) return -1;
+            if (typeof coreModel.getParamIndex === 'function') {
+                const idx = coreModel.getParamIndex('PARAM_MOUTH_OPEN_Y');
+                if (idx >= 0) return idx;
+                return coreModel.getParamIndex('ParamMouthOpenY');
+            }
+            return -1;
+        }
+
+        function setMouthOpen(model, value) {
+            const coreModel = model?.internalModel?.coreModel;
+            if (!coreModel) return;
+            if (typeof coreModel.setParamFloat === 'function' && mouthParamIndex >= 0) {
+                coreModel.setParamFloat(mouthParamIndex, value);
+                return;
+            }
+            if (typeof coreModel.setParameterValueById === 'function') {
+                coreModel.setParameterValueById('ParamMouthOpenY', value);
+            }
+        }
+
+        // === Initialize ===
+        async function init() {
+            log('Starting Avatar AI...', 'info');
+
+            // Setup log toggle
+            document.getElementById('toggleLog').onclick = () => {
+                const log = document.getElementById('log');
+                log.classList.toggle('visible');
+                document.getElementById('toggleLog').textContent =
+                    log.classList.contains('visible') ? 'Hide Log' : 'Show Log';
+            };
+
+            // Setup character selector
+            document.getElementById('characterSelect').onchange = (e) => {
+                if (isConnected) {
+                    endConversation();
+                }
+                currentCharacter = CHARACTERS[e.target.value];
+                updateCharacterDisplay();
+                log(`Switched to ${currentCharacter.name}`, 'success');
+            };
+
+            try {
+                // Load Live2D libraries
+                await loadScript('https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js', 'Cubism2');
+                await loadScript('https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js', 'Cubism4');
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js', 'PixiJS');
+                await loadScript('https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js', 'Live2D Display');
+
+                // Create PIXI app
+                app = new PIXI.Application({
+                    view: document.getElementById('canvas'),
+                    resizeTo: window,
+                    backgroundAlpha: 0,
+                    antialias: true
+                });
+
+                // Load avatar
+                log('Loading avatar...', 'info');
+                const model = await PIXI.live2d.Live2DModel.from(
+                    'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json'
+                );
+                currentModel = model;
+                model.scale.set(0.25);
+                model.x = window.innerWidth / 2;
+                model.y = window.innerHeight * 0.75;
+                model.anchor.set(0.5, 0.5);
+                app.stage.addChild(model);
+
+                mouthParamIndex = findMouthParam(model);
+                log(`Mouth param: ${mouthParamIndex}`, 'success');
+
+                // Mouse tracking
+                document.addEventListener('mousemove', e => model.focus(e.clientX, e.clientY));
+
+                // Lip sync update loop
+                app.ticker.add(() => {
+                    if (smoothedVolume > 0.01) {
+                        smoothedVolume *= 0.85;
+                        setMouthOpen(currentModel, smoothedVolume);
+                        updateVolumeBar(smoothedVolume);
+                    } else {
+                        updateVolumeBar(0);
+                    }
+                });
+
+                // Enable controls
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('startBtn').onclick = startConversation;
+                document.getElementById('endBtn').onclick = endConversation;
+
+                updateCharacterDisplay();
+                updateStatus('', 'Ready');
+                log('Avatar ready!', 'success');
+
+            } catch (err) {
+                log(`ERROR: ${err.message}`, 'error');
+                updateStatus('error', 'Load failed');
+            }
+        }
+
+        // === WebSocket Conversation ===
+        async function startConversation() {
+            try {
+                updateStatus('connecting', 'Connecting...');
+                log(`Connecting to ${currentCharacter.name}...`, 'info');
+
+                // Get microphone
+                micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                // Setup audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.3;
+
+                // Connect WebSocket with current character's agent
+                const wsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${currentCharacter.agentId}`;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    log('WebSocket connected!', 'success');
+                    ws.send(JSON.stringify({ type: 'conversation_initiation_client_data' }));
+                    isConnected = true;
+                    updateStatus('connected', `${currentCharacter.name} ready`);
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('endBtn').disabled = false;
+                    document.getElementById('characterSelect').disabled = true;
+                    startMicCapture();
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleWSMessage(data);
+                };
+
+                ws.onerror = (err) => {
+                    log('WebSocket error', 'error');
+                    updateStatus('error', 'Connection error');
+                };
+
+                ws.onclose = () => {
+                    log('Disconnected', 'info');
+                    cleanupConnection();
+                };
+
+            } catch (err) {
+                log('Start failed: ' + err.message, 'error');
+                updateStatus('error', err.message);
+            }
+        }
+
+        function handleWSMessage(data) {
+            switch (data.type) {
+                case 'conversation_initiation_metadata':
+                    log('Session started', 'success');
+                    break;
+
+                case 'user_transcript':
+                    const userText = data.user_transcription_event?.user_transcript || '';
+                    if (userText) log('You: ' + userText.substring(0, 40), 'info');
+                    break;
+
+                case 'agent_response':
+                    const agentText = data.agent_response_event?.agent_response || '';
+                    if (agentText) log(`${currentCharacter.name}: ${agentText.substring(0, 40)}`, 'success');
+                    break;
+
+                case 'audio':
+                    const audioBase64 = data.audio_event?.audio_base_64;
+                    if (audioBase64) {
+                        isSpeaking = true;
+                        updateStatus('speaking', `${currentCharacter.name} speaking...`);
+                        playAudioChunk(audioBase64);
+                    }
+                    break;
+
+                case 'ping':
+                    setTimeout(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'pong', event_id: data.ping_event?.event_id }));
+                        }
+                    }, data.ping_event?.ping_ms || 0);
+                    break;
+
+                case 'interruption':
+                    isSpeaking = false;
+                    break;
+            }
+        }
+
+        // === Audio Capture ===
+        function startMicCapture() {
+            const source = audioContext.createMediaStreamSource(micStream);
+            micProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+            micProcessor.onaudioprocess = (e) => {
+                if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+                if (isSpeaking) return;
+
+                const inputData = e.inputBuffer.getChannelData(0);
+                const int16Data = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    int16Data[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                }
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(int16Data.buffer)));
+                ws.send(JSON.stringify({ user_audio_chunk: base64 }));
+            };
+
+            source.connect(micProcessor);
+            micProcessor.connect(audioContext.destination);
+        }
+
+        // === Audio Playback with Lip Sync ===
+        async function playAudioChunk(base64Audio) {
+            try {
+                const binaryString = atob(base64Audio);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                const pcm16 = new Int16Array(bytes.buffer);
+                const float32 = new Float32Array(pcm16.length);
+                for (let i = 0; i < pcm16.length; i++) {
+                    float32[i] = pcm16[i] / 32768;
+                }
+
+                const audioBuffer = audioContext.createBuffer(1, float32.length, 16000);
+                audioBuffer.getChannelData(0).set(float32);
+
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                source.start();
+
+                analyzeLipSync();
+
+                source.onended = () => {
+                    setTimeout(() => {
+                        if (!isSpeaking) return;
+                        isSpeaking = false;
+                        updateStatus('listening', 'Listening...');
+                    }, 200);
+                };
+
+            } catch (err) {
+                log('Audio error: ' + err.message, 'error');
+            }
+        }
+
+        function analyzeLipSync() {
+            if (!analyser || !isSpeaking) return;
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            const voiceBins = Math.min(64, dataArray.length);
+            for (let i = 0; i < voiceBins; i++) {
+                const val = dataArray[i] / 255;
+                sum += val * val;
+            }
+            const rms = Math.sqrt(sum / voiceBins);
+            const targetVolume = Math.min(rms * 4, 1);
+
+            if (targetVolume > smoothedVolume) {
+                smoothedVolume = smoothedVolume * 0.2 + targetVolume * 0.8;
+            } else {
+                smoothedVolume = smoothedVolume * 0.6 + targetVolume * 0.4;
+            }
+
+            if (isSpeaking) {
+                requestAnimationFrame(analyzeLipSync);
+            }
+        }
+
+        // === Cleanup ===
+        function cleanupConnection() {
+            isConnected = false;
+            isSpeaking = false;
+            updateStatus('', 'Ready');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('endBtn').disabled = true;
+            document.getElementById('characterSelect').disabled = false;
+        }
+
+        async function endConversation() {
+            log('Ending conversation...', 'info');
+
+            if (ws) { ws.close(); ws = null; }
+            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+            if (micProcessor) { micProcessor.disconnect(); micProcessor = null; }
+            if (audioContext) { await audioContext.close(); audioContext = null; analyser = null; }
+
+            smoothedVolume = 0;
+            cleanupConnection();
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

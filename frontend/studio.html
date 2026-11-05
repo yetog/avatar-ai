@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Avatar Studio - Create Custom AI Companions</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --primary: #007AFF;
+            --primary-glow: rgba(0, 122, 255, 0.3);
+            --secondary: #5856D6;
+            --success: #34C759;
+            --warning: #FF9500;
+            --danger: #FF3B30;
+            --bg-dark: #1a1a2e;
+            --bg-card: rgba(255, 255, 255, 0.06);
+            --glass: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.6);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .back-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text); }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 svg {
+            width: 20px;
+            height: 20px;
+            opacity: 0.7;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-group select option {
+            background: var(--bg-dark);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        /* Presets */
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--primary);
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .preset-btn.active {
+            border-color: var(--primary);
+            background: rgba(0, 122, 255, 0.2);
+        }
+
+        .preset-btn strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .preset-btn span {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px var(--primary-glow);
+        }
+
+        .btn-secondary {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Avatar Gallery */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .avatar-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .avatar-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .avatar-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .avatar-card .placeholder {
+            width: 100%;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.3);
+            color: var(--text-muted);
+        }
+
+        .avatar-card .info {
+            padding: 12px;
+        }
+
+        .avatar-card .name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .avatar-card .status {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.pending { background: var(--warning); }
+        .status-dot.generating { background: var(--warning); animation: pulse 1s infinite; }
+        .status-dot.completed { background: var(--success); }
+        .status-dot.failed { background: var(--danger); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .avatar-card .actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 12px 12px;
+        }
+
+        .avatar-card .actions button {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .avatar-card .actions .use-btn {
+            background: var(--primary);
+            color: white;
+        }
+
+        .avatar-card .actions .delete-btn {
+            background: rgba(255, 59, 48, 0.2);
+            color: var(--danger);
+        }
+
+        .avatar-card .actions .process-btn {
+            background: rgba(88, 86, 214, 0.2);
+            color: var(--secondary);
+        }
+
+        /* Processing Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-dark);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-preview {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: contain;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .process-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .process-btn-full {
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .process-btn-full:hover:not(:disabled) {
+            border-color: var(--primary);
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .process-btn-full:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .process-btn-full svg {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .process-btn-full .info {
+            flex: 1;
+        }
+
+        .process-btn-full .info strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .process-btn-full .info span {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .process-status {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+
+        .process-status.success {
+            background: rgba(52, 199, 89, 0.1);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: var(--success);
+        }
+
+        .process-status.error {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: var(--danger);
+        }
+
+        .process-status.loading {
+            background: rgba(0, 122, 255, 0.1);
+            border: 1px solid rgba(0, 122, 255, 0.3);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--glass);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-header {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Preview */
+        .preview-container {
+            position: relative;
+            aspect-ratio: 1;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .preview-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .preview-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+
+        .preview-placeholder svg {
+            width: 48px;
+            height: 48px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+
+        /* Tips */
+        .tips {
+            background: rgba(0, 122, 255, 0.1);
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+
+        .tips h4 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        .tips ul {
+            font-size: 12px;
+            color: var(--text-muted);
+            padding-left: 20px;
+        }
+
+        .tips li { margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div>
+                <a href="app-test.html" class="back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back to Avatar AI
+                </a>
+                <h1>Avatar Studio</h1>
+                <p>Create custom AI companions with Leonardo AI</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Generator Panel -->
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    Create New Avatar
+                </h2>
+
+                <!-- Character Presets -->
+                <div class="form-group">
+                    <label>Quick Start - Character Presets</label>
+                    <div class="presets-grid" id="presetsGrid">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <form id="generateForm">
+                    <div class="form-group">
+                        <label>Character Name</label>
+                        <input type="text" id="avatarName" placeholder="e.g., Dr. Zay" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="avatarDescription" placeholder="Describe your character's appearance: hair, eyes, clothing, expression, aesthetic..."></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Style</label>
+                            <select id="avatarStyle">
+                                <option value="anime">Anime</option>
+                                <option value="realistic">Semi-Realistic</option>
+                                <option value="cartoon">Cartoon</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Gender</label>
+                            <select id="avatarGender">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="neutral">Neutral</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Age</label>
+                            <select id="avatarAge">
+                                <option value="teen">Teen</option>
+                                <option value="adult" selected>Adult</option>
+                                <option value="elder">Elder</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Extra Details (Optional)</label>
+                        <input type="text" id="avatarExtras" placeholder="e.g., cyberpunk aesthetic, neon accents">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" id="generateBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                        </svg>
+                        Generate Avatar
+                    </button>
+                </form>
+
+                <div class="tips">
+                    <h4>Tips for Best Results</h4>
+                    <ul>
+                        <li>Be specific about facial features and expression</li>
+                        <li>Mention clothing style and colors</li>
+                        <li>Keep poses simple (front-facing works best)</li>
+                        <li>Avoid complex backgrounds</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Gallery Panel -->
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    Your Avatars
+                </h2>
+
+                <div class="gallery" id="avatarGallery">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <p>No avatars yet.<br>Generate your first one!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Modal -->
+    <div class="modal-overlay" id="processingModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Process Avatar</h3>
+                <button class="modal-close" onclick="closeProcessingModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <img id="modalPreview" class="modal-preview" src="" alt="Avatar">
+
+            <div class="process-actions">
+                <button class="process-btn-full" id="btnRemoveBg" onclick="removeBackground()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M3 3l18 18"/>
+                    </svg>
+                    <div class="info">
+                        <strong>Remove Background</strong>
+                        <span>Uses AI to remove background, keeping only the character</span>
+                    </div>
+                </button>
+
+                <button class="process-btn-full" id="btnExtractLayers" onclick="extractLayers()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="6" width="20" height="12" rx="2"/>
+                        <path d="M2 9h20M2 15h20"/>
+                    </svg>
+                    <div class="info">
+                        <strong>Extract Layers</strong>
+                        <span>Separate face, eyes, mouth, hair for Live2D rigging</span>
+                    </div>
+                </button>
+
+                <button class="process-btn-full" id="btnDownloadLayers" onclick="downloadLayers()" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    <div class="info">
+                        <strong>Download Layers (ZIP)</strong>
+                        <span>Get all separated layers for Live2D Cubism Editor</span>
+                    </div>
+                </button>
+
+                <button class="process-btn-full" id="btnDownloadNoBg" onclick="downloadNoBg()" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    <div class="info">
+                        <strong>Download Transparent PNG</strong>
+                        <span>Background-removed version for any use</span>
+                    </div>
+                </button>
+            </div>
+
+            <div id="processStatus" class="process-status" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/avatar-ai/api';  // Adjust if backend is elsewhere
+        let currentAvatarId = null;
+
+        // Load presets
+        async function loadPresets() {
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/presets`);
+                const data = await resp.json();
+
+                const grid = document.getElementById('presetsGrid');
+                grid.innerHTML = data.presets.map(preset => `
+                    <button type="button" class="preset-btn" data-preset='${JSON.stringify(preset)}'>
+                        <strong>${preset.name}</strong>
+                        <span>${preset.description.slice(0, 40)}...</span>
+                    </button>
+                `).join('');
+
+                // Add click handlers
+                grid.querySelectorAll('.preset-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const preset = JSON.parse(btn.dataset.preset);
+                        document.getElementById('avatarName').value = preset.name;
+                        document.getElementById('avatarDescription').value = preset.description;
+                        document.getElementById('avatarStyle').value = preset.style;
+                        document.getElementById('avatarGender').value = preset.gender;
+                        document.getElementById('avatarAge').value = preset.age;
+
+                        // Visual feedback
+                        grid.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    });
+                });
+            } catch (e) {
+                console.error('Failed to load presets:', e);
+            }
+        }
+
+        // Load avatars
+        async function loadAvatars() {
+            try {
+                const resp = await fetch(`${API_BASE}/avatars`);
+                const data = await resp.json();
+
+                const gallery = document.getElementById('avatarGallery');
+
+                if (data.avatars.length === 0) {
+                    gallery.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <p>No avatars yet.<br>Generate your first one!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                gallery.innerHTML = data.avatars.map(avatar => `
+                    <div class="avatar-card" data-id="${avatar.id}">
+                        ${avatar.image_url
+                            ? `<img src="${avatar.image_url}" alt="${avatar.name}">`
+                            : `<div class="placeholder">
+                                ${avatar.status === 'generating' ? '<div class="spinner"></div>' : ''}
+                                ${avatar.status === 'pending' ? 'Queued...' : ''}
+                                ${avatar.status === 'failed' ? 'Failed' : ''}
+                               </div>`
+                        }
+                        <div class="info">
+                            <div class="name">${avatar.name}</div>
+                            <div class="status">
+                                <span class="status-dot ${avatar.status}"></span>
+                                ${avatar.status.charAt(0).toUpperCase() + avatar.status.slice(1)}
+                            </div>
+                        </div>
+                        ${avatar.status === 'completed' ? `
+                            <div class="actions">
+                                <button class="use-btn" onclick="useAvatar('${avatar.id}')">Use</button>
+                                <button class="process-btn" onclick="showProcessing('${avatar.id}', '${avatar.name}')">Process</button>
+                                <button class="delete-btn" onclick="deleteAvatar('${avatar.id}')">Delete</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                // Poll for pending/generating avatars
+                const pending = data.avatars.filter(a => ['pending', 'generating'].includes(a.status));
+                if (pending.length > 0) {
+                    setTimeout(loadAvatars, 3000);
+                }
+            } catch (e) {
+                console.error('Failed to load avatars:', e);
+            }
+        }
+
+        // Generate avatar
+        document.getElementById('generateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> Generating...';
+
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('avatarName').value,
+                        description: document.getElementById('avatarDescription').value,
+                        style: document.getElementById('avatarStyle').value,
+                        gender: document.getElementById('avatarGender').value,
+                        age: document.getElementById('avatarAge').value,
+                        extras: document.getElementById('avatarExtras').value || null,
+                    }),
+                });
+
+                if (!resp.ok) {
+                    const error = await resp.json();
+                    throw new Error(error.detail || 'Generation failed');
+                }
+
+                const data = await resp.json();
+                console.log('Generation started:', data);
+
+                // Reload avatars to show the new one
+                await loadAvatars();
+
+                // Clear form
+                document.getElementById('generateForm').reset();
+
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    Generate Avatar
+                `;
+            }
+        });
+
+        // Delete avatar
+        async function deleteAvatar(id) {
+            if (!confirm('Delete this avatar?')) return;
+
+            try {
+                await fetch(`${API_BASE}/avatars/${id}`, { method: 'DELETE' });
+                loadAvatars();
+            } catch (e) {
+                alert('Failed to delete avatar');
+            }
+        }
+
+        // Use avatar (redirect to main app with this avatar)
+        function useAvatar(id) {
+            // For now, just open the image
+            // TODO: Integrate with Live2D workflow
+            window.open(`${API_BASE}/avatars/${id}/image`, '_blank');
+        }
+
+        // Processing Modal Functions
+        function showProcessing(id, name) {
+            currentAvatarId = id;
+            document.getElementById('modalTitle').textContent = `Process: ${name}`;
+            document.getElementById('modalPreview').src = `${API_BASE}/avatars/${id}/image`;
+            document.getElementById('processingModal').classList.add('active');
+            document.getElementById('processStatus').style.display = 'none';
+
+            // Reset button states
+            document.getElementById('btnDownloadLayers').disabled = true;
+            document.getElementById('btnDownloadNoBg').disabled = true;
+
+            // Check if processed versions exist
+            checkProcessedVersions(id);
+        }
+
+        function closeProcessingModal() {
+            document.getElementById('processingModal').classList.remove('active');
+            currentAvatarId = null;
+        }
+
+        async function checkProcessedVersions(id) {
+            // Check if no-bg version exists
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/${id}/image?variant=nobg`, { method: 'HEAD' });
+                if (resp.ok) {
+                    document.getElementById('btnDownloadNoBg').disabled = false;
+                }
+            } catch (e) {}
+
+            // Check if layers exist
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/${id}/image?variant=layers`, { method: 'HEAD' });
+                if (resp.ok) {
+                    document.getElementById('btnDownloadLayers').disabled = false;
+                }
+            } catch (e) {}
+        }
+
+        function showStatus(message, type = 'loading') {
+            const status = document.getElementById('processStatus');
+            status.style.display = 'block';
+            status.className = `process-status ${type}`;
+
+            if (type === 'loading') {
+                status.innerHTML = `<div class="spinner"></div> ${message}`;
+            } else {
+                status.textContent = message;
+            }
+        }
+
+        async function removeBackground() {
+            if (!currentAvatarId) return;
+
+            showStatus('Removing background...', 'loading');
+            document.getElementById('btnRemoveBg').disabled = true;
+
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/${currentAvatarId}/remove-background`, {
+                    method: 'POST'
+                });
+
+                if (!resp.ok) {
+                    const error = await resp.json();
+                    throw new Error(error.detail || 'Background removal failed');
+                }
+
+                const data = await resp.json();
+                showStatus('Background removed successfully!', 'success');
+                document.getElementById('btnDownloadNoBg').disabled = false;
+
+                // Update preview to show no-bg version
+                document.getElementById('modalPreview').src = `${API_BASE}/avatars/${currentAvatarId}/image?variant=nobg`;
+
+            } catch (e) {
+                showStatus(`Error: ${e.message}`, 'error');
+            } finally {
+                document.getElementById('btnRemoveBg').disabled = false;
+            }
+        }
+
+        async function extractLayers() {
+            if (!currentAvatarId) return;
+
+            showStatus('Extracting layers... (this may take a moment)', 'loading');
+            document.getElementById('btnExtractLayers').disabled = true;
+
+            try {
+                const resp = await fetch(`${API_BASE}/avatars/${currentAvatarId}/extract-layers`, {
+                    method: 'POST'
+                });
+
+                if (!resp.ok) {
+                    const error = await resp.json();
+                    throw new Error(error.detail || 'Layer extraction failed');
+                }
+
+                const data = await resp.json();
+                showStatus(`Layers extracted: ${data.layers.join(', ')}. ${data.note}`, 'success');
+                document.getElementById('btnDownloadLayers').disabled = false;
+
+            } catch (e) {
+                showStatus(`Error: ${e.message}`, 'error');
+            } finally {
+                document.getElementById('btnExtractLayers').disabled = false;
+            }
+        }
+
+        function downloadLayers() {
+            if (!currentAvatarId) return;
+            window.open(`${API_BASE}/avatars/${currentAvatarId}/image?variant=layers`, '_blank');
+        }
+
+        function downloadNoBg() {
+            if (!currentAvatarId) return;
+            // Create download link
+            const link = document.createElement('a');
+            link.href = `${API_BASE}/avatars/${currentAvatarId}/image?variant=nobg`;
+            link.download = `${currentAvatarId}_transparent.png`;
+            link.click();
+        }
+
+        // Close modal on overlay click
+        document.getElementById('processingModal').addEventListener('click', (e) => {
+            if (e.target.id === 'processingModal') {
+                closeProcessingModal();
+            }
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeProcessingModal();
+            }
+        });
+
+        // Initialize
+        loadPresets();
+        loadAvatars();
+
+        // Check available capabilities on load
+        async function checkCapabilities() {
+            try {
+                const resp = await fetch(`${API_BASE}/processing/status`);
+                const data = await resp.json();
+                console.log('Processing capabilities:', data.capabilities);
+
+                // Show warning if rembg not installed
+                if (!data.capabilities.background_removal) {
+                    console.warn('Background removal not available. Run:', data.install_commands.background_removal);
+                }
+            } catch (e) {
+                console.log('Backend may not be running');
+            }
+        }
+        checkCapabilities();
+    </script>
+</body>
+</html>
